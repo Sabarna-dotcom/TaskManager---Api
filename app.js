@@ -6,6 +6,7 @@ const { mongoose } = require('./db/mongoose');
 const { List, Task, User } = require('./db/models');
 
 const compression = require('compression');
+const port = process.env.PORT || 5000;
 
 const jwt = require('jsonwebtoken');
 
