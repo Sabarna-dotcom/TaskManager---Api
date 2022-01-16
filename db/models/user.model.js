@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 
+
 // JWT Secret
 const jwtSecret = "51778657246321226641fsdklafjasdkljfsklfjd7148924065";
 
@@ -31,6 +32,7 @@ const UserSchema = new mongoose.Schema({
         }
     }]
 });
+
 
 // *** Instance methods ***
 
@@ -71,7 +73,6 @@ UserSchema.methods.generateRefreshAuthToken = function () {
     })
 }
 
-
 UserSchema.methods.createSession = function () {
     let user = this;
 
@@ -86,11 +87,15 @@ UserSchema.methods.createSession = function () {
     })
 }
 
+
+
 /* MODEL METHODS (static methods) */
 
 UserSchema.statics.getJWTSecret = () => {
     return jwtSecret;
 }
+
+
 
 UserSchema.statics.findByIdAndToken = function (_id, token) {
     // finds user by id and token

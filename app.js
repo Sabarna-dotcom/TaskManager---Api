@@ -1,17 +1,20 @@
 const express = require('express');
 const app = express();
-const bodyParser = require('body-parser');
 
 const { mongoose } = require('./db/mongoose');
+
+const bodyParser = require('body-parser');
+
+// Load in the mongoose models
 const { List, Task, User } = require('./db/models');
-
-
-const port = process.env.PORT || 5000;
 
 const jwt = require('jsonwebtoken');
 
-app.use(bodyParser.json());
 
+/* MIDDLEWARE  */
+
+// Load middleware
+app.use(bodyParser.json());
 
 
 // CORS HEADERS MIDDLEWARE
@@ -27,6 +30,7 @@ app.use(function (req, res, next) {
 
     next();
 });
+
 
 // check whether the request has a valid JWT access token
 let authenticate = (req, res, next) => {
@@ -97,11 +101,20 @@ let verifySession = (req, res, next) => {
     })
 }
 
-//ROUTE HANDLER
+/* END MIDDLEWARE  */
 
-//List controllers Api
 
-app.get('/lists', authenticate , (req, res) => {
+
+
+/* ROUTE HANDLERS */
+
+/* LIST ROUTES */
+
+/**
+ * GET /lists
+ * Purpose: Get all lists
+ */
+app.get('/lists', authenticate, (req, res) => {
     // We want to return an array of all the lists that belong to the authenticated user 
     List.find({
         _userId: req.user_id
@@ -112,8 +125,13 @@ app.get('/lists', authenticate , (req, res) => {
     });
 })
 
-app.post('/lists', authenticate , (req, res) => {
-    //We want to create a new list and return the new list
+/**
+ * POST /lists
+ * Purpose: Create a list
+ */
+app.post('/lists', authenticate, (req, res) => {
+    // We want to create a new list and return the new list document back to the user (which includes the id)
+    // The list information (fields) will be passed in via the JSON request body
     let title = req.body.title;
 
     let newList = new List({
@@ -124,54 +142,60 @@ app.post('/lists', authenticate , (req, res) => {
         // the full list document is returned (incl. id)
         res.send(listDoc);
     })
-})
+});
 
-app.patch('/lists/:id',authenticate,(req, res) => {
-    //we want to update the specified list with JSON
+/**
+ * PATCH /lists/:id
+ * Purpose: Update a specified list
+ */
+app.patch('/lists/:id', authenticate, (req, res) => {
+    // We want to update the specified list (list document with id in the URL) with the new values specified in the JSON body of the request
     List.findOneAndUpdate({ _id: req.params.id, _userId: req.user_id }, {
         $set: req.body
     }).then(() => {
         res.send({ 'message': 'updated successfully'});
     });
-})
+});
 
+/**
+ * DELETE /lists/:id
+ * Purpose: Delete a list
+ */
 app.delete('/lists/:id', authenticate, (req, res) => {
-    //we want to delete the specified list
+    // We want to delete the specified list (document with id in the URL)
     List.findOneAndRemove({
         _id: req.params.id,
         _userId: req.user_id
     }).then((removedListDoc) => {
         res.send(removedListDoc);
+
         // delete all the tasks that are in the deleted list
         deleteTasksFromList(removedListDoc._id);
     })
-})
+});
 
 
-//Tasks controllers Api
-
+/**
+ * GET /lists/:listId/tasks
+ * Purpose: Get all tasks in a specific list
+ */
 app.get('/lists/:listId/tasks', authenticate, (req, res) => {
-    //We want to get the list of tasks that belong to the list with the given id
+    // We want to return all tasks that belong to a specific list (specified by listId)
     Task.find({
         _listId: req.params.listId
     }).then((tasks) => {
         res.send(tasks);
     })
-})
+});
 
-app.get('/lists/:listId/tasks/:taskId', (req, res) => {
-    //We want to get the spacified task with the task id that belong to the list with the given list id
-    Task.findOne({
-        _id: req.params.taskId,
-        _listId: req.params.listId
-    }).then((task) => {
-        res.send(task);
-    })
-})
 
+/**
+ * POST /lists/:listId/tasks
+ * Purpose: Create a new task in a specific list
+ */
 app.post('/lists/:listId/tasks', authenticate, (req, res) => {
+    // We want to create a new task in a list specified by listId
 
-    //We want to create a new tasks to the list specified by listId
     List.findOne({
         _id: req.params.listId,
         _userId: req.user_id
@@ -199,7 +223,11 @@ app.post('/lists/:listId/tasks', authenticate, (req, res) => {
     })
 })
 
-app.patch('/lists/:listId/tasks/:taskId', authenticate , (req, res) => {
+/**
+ * PATCH /lists/:listId/tasks/:taskId
+ * Purpose: Update an existing task
+ */
+app.patch('/lists/:listId/tasks/:taskId', authenticate, (req, res) => {
     // We want to update an existing task (specified by taskId)
 
     List.findOne({
@@ -232,6 +260,10 @@ app.patch('/lists/:listId/tasks/:taskId', authenticate , (req, res) => {
     })
 });
 
+/**
+ * DELETE /lists/:listId/tasks/:taskId
+ * Purpose: Delete a task
+ */
 app.delete('/lists/:listId/tasks/:taskId', authenticate, (req, res) => {
 
     List.findOne({
@@ -261,13 +293,15 @@ app.delete('/lists/:listId/tasks/:taskId', authenticate, (req, res) => {
     });
 });
 
+
+
 /* USER ROUTES */
 
 /**
  * POST /users
  * Purpose: Sign up
  */
- app.post('/users', (req, res) => {
+app.post('/users', (req, res) => {
     // User sign up
 
     let body = req.body;
@@ -277,7 +311,7 @@ app.delete('/lists/:listId/tasks/:taskId', authenticate, (req, res) => {
         return newUser.createSession();
     }).then((refreshToken) => {
         // Session created successfully - refreshToken returned.
-        // now we generate an access auth token for the user
+        // now we geneate an access auth token for the user
 
         return newUser.generateAccessAuthToken().then((accessToken) => {
             // access auth token generated successfully, now we return an object containing the auth tokens
@@ -324,6 +358,11 @@ app.post('/users/login', (req, res) => {
     });
 })
 
+
+/**
+ * GET /users/me/access-token
+ * Purpose: generates and returns an access token
+ */
 app.get('/users/me/access-token', verifySession, (req, res) => {
     // we know that the user/caller is authenticated and we have the user_id and user object available to us
     req.userObject.generateAccessAuthToken().then((accessToken) => {
@@ -332,6 +371,8 @@ app.get('/users/me/access-token', verifySession, (req, res) => {
         res.status(400).send(e);
     });
 })
+
+
 
 /* HELPER METHODS */
 let deleteTasksFromList = (_listId) => {
@@ -343,10 +384,8 @@ let deleteTasksFromList = (_listId) => {
 }
 
 
-app.listen(3000,()=>{
-    console.log('Server listing to port 3000')
-})
 
-module.exports = {
-    mongoose
-}
+
+app.listen(3000, () => {
+    console.log("Server is listening on port 3000");
+})
